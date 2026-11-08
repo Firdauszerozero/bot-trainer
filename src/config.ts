@@ -15,11 +15,18 @@ export interface ActiveWindow {
 }
 
 export interface AiConfig {
+  /** API key Google AI Studio — dari GEMINI_API_KEY (fallback warisan: AI_API_KEY). */
   apiKey: string;
-  baseURL: string;
+  /** Model Gemini — bawaan "gemini-2.5-flash" (GEMINI_MODEL). */
   model: string;
+  /** Kreativitas/variasi kata — bawaan 0.9 (GEMINI_TEMPERATURE). */
   temperature: number;
-  maxTokens: number;
+  /** Penalti topik/kata yang sudah muncul — bawaan 0.6 (GEMINI_PRESENCE_PENALTY). */
+  presencePenalty: number;
+  /** Penalti pengulangan kata dalam satu balasan — bawaan 0.5 (GEMINI_FREQUENCY_PENALTY). */
+  frequencyPenalty: number;
+  /** Batas token keluaran per balasan — bawaan 120 (GEMINI_MAX_OUTPUT_TOKENS). */
+  maxOutputTokens: number;
 }
 
 export interface GroupConfig {
@@ -139,11 +146,15 @@ export const config: BotConfig = {
     chatTurnGapMaxMs: intFromEnv('GROUP_CHAT_TURN_GAP_MAX_MS', 12000),
   },
   ai: {
-    apiKey: process.env.AI_API_KEY?.trim() ?? '',
-    baseURL: process.env.AI_BASE_URL?.trim() || 'https://api.groq.com/openai/v1',
-    model: process.env.AI_MODEL?.trim() || 'llama-3.3-70b-versatile',
-    temperature: floatFromEnv('AI_TEMPERATURE', 0.9),
-    maxTokens: intFromEnv('AI_MAX_TOKENS', 120),
+    // Provider sekarang Google Gemini (@google/genai). GEMINI_API_KEY adalah
+    // nama resminya; AI_API_KEY lama hanya diterima sebagai fallback agar
+    // `.env` yang sudah terpasang tidak langsung mati setelah migrasi.
+    apiKey: process.env.GEMINI_API_KEY?.trim() || process.env.AI_API_KEY?.trim() || '',
+    model: process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash',
+    temperature: floatFromEnv('GEMINI_TEMPERATURE', 0.9),
+    presencePenalty: floatFromEnv('GEMINI_PRESENCE_PENALTY', 0.6),
+    frequencyPenalty: floatFromEnv('GEMINI_FREQUENCY_PENALTY', 0.5),
+    maxOutputTokens: intFromEnv('GEMINI_MAX_OUTPUT_TOKENS', 120),
   },
   thinkDelayMinMs: intFromEnv('THINK_DELAY_MIN_MS', 3000),
   thinkDelayMaxMs: intFromEnv('THINK_DELAY_MAX_MS', 7000),

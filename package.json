@@ -1,1 +1,30 @@
-{"dependencies":{"@whiskeysockets/baileys":"^7.0.0-rc.9","dotenv":"^17.2.3","https-proxy-agent":"^9.1.0","node-cron":"^3.0.3","openai":"^4.104.0","pino":"^9.5.0"},"description":"Multi-account WhatsApp warming-up / training bot on Baileys (TypeScript), one process per VPS. Pairing-code login per account (numbers stored in a local registry), an interactive console dashboard/menu (status, accounts, chat logs), accounts added from the console menu, auto-join of a target group from .env, bot-to-bot group conversations, active-hours scheduler, human-like reply delays, and a text-only AI chat backend (OpenAI-compatible: Groq / Gemini / OpenRouter / OpenAI).","devDependencies":{"@types/node":"^22.10.2","@types/node-cron":"^3.0.11","tsx":"^4.23.15","typescript":"^5.7.2"},"engines":{"node":">=20"},"name":"bot-trainer","private":true,"scripts":{"build":"tsc -p tsconfig.json","dev":"tsx watch src/index.ts","start":"tsx src/index.ts","typecheck":"tsc --noEmit -p tsconfig.json"},"type":"module","version":"1.0.0"}
+{
+  "dependencies": {
+    "@google/genai": "^3.0.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "dotenv": "^17.2.3",
+    "https-proxy-agent": "^9.1.0",
+    "node-cron": "^3.0.3",
+    "pino": "^9.5.0"
+  },
+  "description": "Multi-account WhatsApp warming-up / training bot on Baileys (TypeScript), one process per VPS. Pairing-code login per account (numbers stored in a local registry), an interactive console dashboard/menu (status, accounts, chat logs), accounts added from the console menu, auto-join of a target group from .env, bot-to-bot group conversations, active-hours scheduler, human-like reply delays, and a text-only AI chat backend on Google Gemini 2.5 Flash (@google/genai) with few-shot slang prompting and anti-repetition penalties.",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "name": "bot-trainer",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}

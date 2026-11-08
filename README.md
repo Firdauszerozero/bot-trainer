@@ -1,6 +1,6 @@
 # Bot Trainer — WhatsApp Warming-Up Bot, Multi-Akun (TypeScript)
 
-Bot WhatsApp untuk **warming up / training banyak akun sekaligus dalam satu proses di satu VPS**. Dibangun di atas [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys) (TypeScript, ESM) dengan balasan AI text-only bergaya chat santai anak muda Indonesia.
+Bot WhatsApp untuk **warming up / training banyak akun sekaligus dalam satu proses di satu VPS**. Dibangun di atas [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys) (TypeScript, ESM) dengan balasan AI text-only dari **Google Gemini 2.5 Flash** (SDK resmi `@google/genai`) bergaya chat santai anak muda Indonesia.
 
 Semua akun bot **bercakap-cakap di dalam satu grup WhatsApp target**: akun yang baru selesai pairing langsung berusaha masuk grup itu, lalu orchestrator mengatur sesi obrolan antar-bot secara bergiliran — hanya pada jam aktif, dengan jeda human-like penuh.
 
@@ -59,7 +59,7 @@ bot-trainer/
     ├── session.ts        # siklus hidup sesi per akun
     ├── scheduler.ts      # jam aktif/tidur (node-cron + Intl timezone)
     ├── human-delay.ts    # jeda berpikir acak, durasi typing dinamis
-    ├── ai.ts             # OpenAI SDK, system prompt slang, sanitize, fallback
+    ├── ai.ts             # @google/genai (Gemini 2.5 Flash), few-shot slang, penalti anti-repetisi, sanitize, fallback
     └── handler.ts        # extract teks, memori percakapan, antrean per chat
 ```
 
@@ -68,7 +68,7 @@ bot-trainer/
 | Package | Fungsi |
 |---|---|
 | `@whiskeysockets/baileys` | WhatsApp gateway (multi-device) |
-| `openai` | SDK API AI text-only (baseURL fleksibel) |
+| `@google/genai` | SDK resmi Google Gen AI — model Gemini 2.5 Flash (text-only) |
 | `node-cron` | Penjadwal transisi jam aktif/tidur |
 | `dotenv` | Memuat `.env` |
 | `pino` | Logger internal Baileys |
@@ -81,7 +81,7 @@ Butuh **Node.js ≥ 20**.
 
 ```bash
 npm install
-cp .env.example .env   # isi GROUP_JID / GROUP_INVITE_LINK & AI_API_KEY
+cp .env.example .env   # isi GROUP_JID / GROUP_INVITE_LINK & GEMINI_API_KEY
 npm start
 ```
 
@@ -108,16 +108,19 @@ Di VPS, jalankan di dalam `tmux`/`screen` atau service (systemd/pm2) supaya menu
 | `GROUP_CHAT_TURN_GAP_MIN/MAX_MS` | `4000` / `12000` | Jeda ekstra antar giliran |
 | `BOT_TIMEZONE` | `Asia/Jakarta` | Zona waktu jadwal |
 | `ACTIVE_WINDOWS` | `08:00-12:00,16:00-20:00` | Jendela jam aktif semua akun |
-| `AI_API_KEY` | kosong = mode fallback | API key provider AI |
-| `AI_BASE_URL` | `https://api.groq.com/openai/v1` | Endpoint OpenAI-compatible |
-| `AI_MODEL` | `llama-3.3-70b-versatile` | Model text |
+| `GEMINI_API_KEY` | kosong = mode fallback | API key Google AI Studio |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Model Gemini |
+| `GEMINI_TEMPERATURE` | `0.9` | Variasi pilihan kata |
+| `GEMINI_PRESENCE_PENALTY` | `0.6` | Penalti topik/kata yang sudah muncul |
+| `GEMINI_FREQUENCY_PENALTY` | `0.5` | Penalti pengulangan kata dalam satu balasan |
+| `GEMINI_MAX_OUTPUT_TOKENS` | `120` | Batas token keluaran per balasan |
 | `THINK_DELAY_MIN/MAX_MS` | `3000` / `7000` | Rentang jeda berpikir acak |
 | `TYPING_MS_PER_CHAR` / `TYPING_MAX_MS` | `40` / `6000` | Simulasi mengetik |
 | `MARK_AS_READ` | `true` | Centang biru saat jam aktif |
 | `RESPOND_TO_GROUPS` | `false` | Balas juga di grup selain grup target |
 | `LOG_LEVEL` | `silent` | Level log pino Baileys |
 
-Provider AI: **Groq** (`https://api.groq.com/openai/v1`), **Gemini** (`https://generativelanguage.googleapis.com/v1beta/openai/`, model `gemini-2.0-flash`), **Muse via OpenRouter** (`https://openrouter.ai/api/v1`), **OpenAI** (`https://api.openai.com/v1`). Satu konfigurasi AI dipakai bersama oleh semua akun; gaya jawaban (slang, huruf kecil, tanpa markdown, ≤3 kalimat) ditegakkan di kode untuk semuanya.
+Provider AI: **Google Gemini** saja, lewat SDK resmi `@google/genai` (`new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })`), model bawaan `gemini-2.5-flash`. Gaya jawaban dikunci tiga lapis: `systemInstruction` yang melarang kata baku, **few-shot prompting** di `contents` (3 contoh percakapan formal → santai selalu mendahului riwayat chat asli), dan filter regex `sanitizeReply` di kode (lowercase paksa, kata baku yang lolos diganti slang — mis. `tidak` → `ga`, tanda baca di akhir kalimat dibuang). Anti repetisi diatur di config API: `temperature 0.9`, `presencePenalty 0.6`, `frequencyPenalty 0.5`. Satu konfigurasi AI dipakai bersama oleh semua akun. Migrasi dari versi Groq/OpenAI-compatible: ganti nama `AI_API_KEY` → `GEMINI_API_KEY` di `.env` (nama lama masih diterima sebagai fallback, tapi `AI_BASE_URL`/`AI_MODEL` tidak dipakai lagi).
 
 ## Catatan
 

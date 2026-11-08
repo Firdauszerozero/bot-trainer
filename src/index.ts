@@ -503,8 +503,8 @@ async function main(): Promise<void> {
   console.log(`[jadwal] Jendela aktif: ${describeWindows()} (${config.timezone}) — status sekarang: ${active ? 'ON ☀️' : 'TIDUR 🌙'}`);
   console.log(
     config.ai.apiKey
-      ? `[ai] Provider: ${config.ai.baseURL} | model: ${config.ai.model}`
-      : '[ai] AI_API_KEY kosong — memakai balasan cadangan bawaan (tanpa API).',
+      ? `[ai] Provider: Google Gemini (@google/genai) | model: ${config.ai.model}`
+      : '[ai] GEMINI_API_KEY kosong — memakai balasan cadangan bawaan (tanpa API).',
   );
   console.log(
     config.group.jid || config.group.inviteCode

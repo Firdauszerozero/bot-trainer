@@ -165,7 +165,7 @@ export function renderDashboard(snapshot: DashboardSnapshot): void {
   lines.push(
     boxLine(
       config.ai.apiKey
-        ? `AI         : ${config.ai.model} @ ${config.ai.baseURL}`
+        ? `AI         : ${config.ai.model} @ Google Gemini`
         : 'AI         : mode fallback (tanpa API key)',
     ),
   );
