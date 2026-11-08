@@ -22,12 +22,36 @@ export interface AiConfig {
   maxTokens: number;
 }
 
+export interface GroupConfig {
+  /**
+   * JID grup tujuan, format "120363xxxxxxxxxx@g.us".
+   * Boleh kosong bila hanya memakai invite link — JID hasil join
+   * akan ditemukan otomatis dari link tersebut.
+   */
+  jid: string;
+  /** Kode undangan grup (atau link chat.whatsapp.com/... utuh). */
+  inviteCode: string;
+  /** Aktifkan percakapan antar-bot di dalam grup. */
+  chatEnabled: boolean;
+  /** Jeda antar sesi percakapan grup (menit, acak di rentang ini). */
+  chatIntervalMinMinutes: number;
+  chatIntervalMaxMinutes: number;
+  /** Jumlah giliran bicara dalam satu sesi percakapan grup. */
+  chatMinTurns: number;
+  chatMaxTurns: number;
+  /** Jeda ekstra antar giliran bicara di grup (milidetik, acak di rentang ini). */
+  chatTurnGapMinMs: number;
+  chatTurnGapMaxMs: number;
+}
+
 export interface BotConfig {
-  /** Nomor pairing, digit saja (mis. "62812xxxxxxx"). Kosong bila belum diisi. */
-  phoneNumber: string;
-  authDir: string;
+  /** Folder basis sesi: sesi akun <id> disimpan di <authBaseDir>/<id>/. */
+  authBaseDir: string;
+  /** File registry akun (JSON): daftar akun bot yang dikelola proses ini. */
+  accountsFile: string;
   timezone: string;
   activeWindows: ActiveWindow[];
+  group: GroupConfig;
   ai: AiConfig;
   thinkDelayMinMs: number;
   thinkDelayMaxMs: number;
@@ -86,16 +110,34 @@ function boolFromEnv(name: string, fallback: boolean): boolean {
   return ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase());
 }
 
-/** Nomor dinormalisasi ke digit saja: "+62 812-345" -> "62812345". */
-export function normalizePhone(raw: string | undefined): string {
-  return (raw ?? '').replace(/\D/g, '');
+/**
+ * Ambil kode undangan dari input `.env`: menerima kode mentah
+ * ("AbCdEf123") maupun link utuh ("https://chat.whatsapp.com/AbCdEf123").
+ */
+export function extractInviteCode(raw: string | undefined): string {
+  const value = (raw ?? '').trim();
+  if (!value) return '';
+  const linkMatch = /chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9_-]+)/.exec(value);
+  if (linkMatch) return linkMatch[1] ?? '';
+  return value.split(/[?\s]/)[0] ?? '';
 }
 
 export const config: BotConfig = {
-  phoneNumber: normalizePhone(process.env.BOT_PHONE_NUMBER),
-  authDir: process.env.AUTH_DIR?.trim() || 'auth_info',
+  authBaseDir: process.env.AUTH_BASE_DIR?.trim() || 'auth_info',
+  accountsFile: process.env.ACCOUNTS_FILE?.trim() || 'data/accounts.json',
   timezone: process.env.BOT_TIMEZONE?.trim() || 'Asia/Jakarta',
   activeWindows: parseActiveWindows(process.env.ACTIVE_WINDOWS ?? '08:00-12:00,16:00-20:00'),
+  group: {
+    jid: process.env.GROUP_JID?.trim() ?? '',
+    inviteCode: extractInviteCode(process.env.GROUP_INVITE_CODE ?? process.env.GROUP_INVITE_LINK),
+    chatEnabled: boolFromEnv('GROUP_CHAT_ENABLED', true),
+    chatIntervalMinMinutes: intFromEnv('GROUP_CHAT_INTERVAL_MIN_MINUTES', 20),
+    chatIntervalMaxMinutes: intFromEnv('GROUP_CHAT_INTERVAL_MAX_MINUTES', 45),
+    chatMinTurns: intFromEnv('GROUP_CHAT_MIN_TURNS', 4),
+    chatMaxTurns: intFromEnv('GROUP_CHAT_MAX_TURNS', 8),
+    chatTurnGapMinMs: intFromEnv('GROUP_CHAT_TURN_GAP_MIN_MS', 4000),
+    chatTurnGapMaxMs: intFromEnv('GROUP_CHAT_TURN_GAP_MAX_MS', 12000),
+  },
   ai: {
     apiKey: process.env.AI_API_KEY?.trim() ?? '',
     baseURL: process.env.AI_BASE_URL?.trim() || 'https://api.groq.com/openai/v1',
