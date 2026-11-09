@@ -112,7 +112,7 @@ export class BotAccount {
 
   /**
    * Minta pairing code untuk nomor registry akun ini dan tampilkan
-   * lewat UI (langsung terlihat, tidak menunggu refresh dashboard).
+   * langsung di console (berbingkai jelas lewat showPairingCode).
    * Tanpa nomor, akun parkir di status 'needs-phone' sampai nomor
    * diisi lewat menu console.
    */

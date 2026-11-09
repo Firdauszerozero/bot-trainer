@@ -9,14 +9,15 @@
  *   dari `.env`, lalu akun-akun bercakap-cakap di grup lewat
  *   orchestrator (group-chat.ts) pada jam aktif.
  *
- * Console-nya adalah UI MENU (ui.ts): saat proses hidup yang tampil
- * adalah dashboard — status bot, jadwal, AI, grup, daftar akun, log
- * chat & log terakhir — plus menu:
- *   1 Tambah akun   2 Pairing/sambungkan   3 Daftar akun
- *   4 Log chat      5 Log sistem           6 Logout akun
- *   7 Hapus akun    0 Keluar
- * Semua log modul ditangkap ke buffer dashboard; hanya kode pairing
- * yang tampil seketika (memang harus segera dimasukkan ke HP).
+ * Console-nya MENU BIASA (ui.ts): log semua modul tercetak langsung
+ * apa adanya, dan ada satu menu bernomor sederhana:
+ *   1 Tambah akun (nama → nomor → langsung pairing)
+ *   2 Pairing / sambungkan akun
+ *   3 Daftar akun & status
+ *   4 Logout / hapus akun
+ *   5 Keluar
+ * Kode pairing tampil seketika berbingkai jelas (harus segera
+ * dimasukkan ke HP akun yang di-pairing).
  */
 import { createInterface } from 'node:readline';
 import {
@@ -35,16 +36,17 @@ import { describeWindows, isActiveNow, startScheduler, stopScheduler } from './s
 import type { WAMessage } from '@whiskeysockets/baileys';
 import { getAiReply } from './ai.js';
 import { sleep } from './human-delay.js';
-import {
-  installConsoleCapture,
-  recentChatLogs,
-  recentLogs,
-  renderDashboard,
-  setMenuActive,
-  writeDirect,
-  writeInline,
-  type AccountSnapshot,
-} from './ui.js';
+import { accountStatusLabel, printMainMenu, type AccountSnapshot } from './ui.js';
+
+/** Tulis satu baris langsung ke stdout (untuk tampilan menu). */
+function writeDirect(text: string): void {
+  process.stdout.write(text.endsWith('\n') ? text : `${text}\n`);
+}
+
+/** Tulis prompt input apa adanya (tanpa newline di akhir). */
+function writeInline(text: string): void {
+  process.stdout.write(text);
+}
 
 class AccountManager {
   private readonly records = new Map<string, AccountRecord>();
@@ -344,7 +346,7 @@ async function pickAccount(manager: AccountManager, asker: Asker, title: string)
   }
   writeDirect(`\n${title}`);
   bots.forEach((bot, index) => {
-    writeDirect(`  ${index + 1}. ${bot.id} — ${bot.status}${bot.displayPhone ? ` | +${bot.displayPhone}` : ''}`);
+    writeDirect(`  ${index + 1}. ${bot.id} — ${accountStatusLabel(bot.status)}${bot.displayPhone ? ` | +${bot.displayPhone}` : ''}`);
   });
   const answer = await asker.ask('Pilih nomor akun (Enter = batal): ');
   if (answer === null || answer.trim() === '') return undefined;
@@ -354,28 +356,35 @@ async function pickAccount(manager: AccountManager, asker: Asker, title: string)
   return bot;
 }
 
+/**
+ * Menu 1 — tambah akun. Alurnya persis tiga langkah:
+ *   1) minta NAMA akun, 2) minta NOMOR HP, 3) akun dibuat dan
+ *      langsung masuk proses PAIRING (antrean pairing satu-satu;
+ *      kode pairing tampil berbingkai di console begitu gilirannya).
+ */
 async function menuAddAccount(manager: AccountManager, asker: Asker): Promise<void> {
-  const nameAnswer = await asker.ask(`Nama akun baru (Enter = otomatis "${manager.suggestAccountId()}"): `);
+  writeDirect('\n── Tambah akun ──');
+  const nameAnswer = await asker.ask('Nama akun: ');
   if (nameAnswer === null) return;
   const id = nameAnswer.trim() === '' ? manager.suggestAccountId() : sanitizeAccountId(nameAnswer);
   if (!id) {
-    writeDirect('Nama tidak valid — pakai huruf/angka/dash, maks 32 karakter.');
+    writeDirect('Nama tidak valid — pakai huruf/angka/dash, maks 32 karakter. Akun tidak dibuat.');
     return;
   }
   if (manager.hasAccount(id)) {
     writeDirect(`Akun "${id}" sudah ada — pakai menu 2 untuk pairing akun itu.`);
     return;
   }
-  const phoneAnswer = await asker.ask('Nomor HP akun (format 628xxxx / 08xxxx): ');
+  const phoneAnswer = await asker.ask('Nomor HP: ');
   if (phoneAnswer === null) return;
   const phone = normalizePhoneNumber(phoneAnswer);
   if (!phone) {
-    writeDirect('Nomor tidak valid — harus 10–15 digit (contoh: 6281234567890). Akun tidak dibuat.');
+    writeDirect('Nomor tidak valid — harus 10–15 digit (contoh: 6281234567890 / 081234567890). Akun tidak dibuat.');
     return;
   }
   manager.addAccount(id, phone);
   writeDirect(
-    `✅ Akun "${id}" (+${phone}) dibuat. Bila antrean pairing kosong, kode pairingnya tampil di layar ini sebentar lagi — masukkan ke HP nomor tersebut.`,
+    `✅ Akun "${id}" (+${phone}) dibuat — pairing dimulai. Kode pairingnya akan tampil di console ini (bila ada akun lain yang sedang pairing, akun ini antre dulu).`,
   );
 }
 
@@ -411,41 +420,44 @@ async function menuPairAccount(manager: AccountManager, asker: Asker): Promise<v
   writeDirect(`🔑 Pairing "${bot.id}" (+${phone}) dimulai/di-antrekan — kode pairing akan tampil di layar ini.`);
 }
 
-/** Loop menu utama. Mengembalikan 'exit' bila user memilih 0, 'eof' bila stdin tertutup. */
+/** Menu 4: pilih akun, lalu pilih logout saja atau hapus akun. */
+async function menuManageAccount(manager: AccountManager, asker: Asker): Promise<void> {
+  const bot = await pickAccount(manager, asker, 'Kelola akun — pilih akunnya:');
+  if (!bot) return;
+  writeDirect(`Akun "${bot.id}" — mau diapakan?`);
+  writeDirect('  1. Logout saja (sesi dihapus, akun tetap ada — pairing ulang lewat menu 2)');
+  writeDirect('  2. Hapus akun (logout + sesi dihapus + keluar dari daftar akun)');
+  const answer = await asker.ask('Pilih (1/2, Enter = batal): ');
+  if (answer === null) return;
+  if (answer.trim() === '1') {
+    await manager.logoutAccount(bot.id, false);
+    writeDirect(`✅ Akun "${bot.id}" sudah di-logout & sesinya dihapus.`);
+  } else if (answer.trim() === '2') {
+    await manager.logoutAccount(bot.id, true);
+    writeDirect(`✅ Akun "${bot.id}" sudah dihapus.`);
+  } else if (answer.trim() !== '') {
+    writeDirect('Pilihan tidak valid — dibatalkan.');
+  }
+}
+
+/**
+ * Loop menu utama (menu biasa 1–5). Selesai bila user memilih 5
+ * (keluar) atau stdin tertutup — dalam kasus stdin tertutup bot tetap
+ * hidup melayani chat, hanya menunya saja yang berhenti.
+ */
 async function runMenu(manager: AccountManager, onExit: () => void): Promise<void> {
   const asker = createAsker();
-  setMenuActive(true);
   for (;;) {
-    renderDashboard({
-      now: new Date(),
-      active: isActiveNow(),
-      accounts: manager.snapshot(),
-      groupTarget: config.group.jid || manager.snapshot().find((a) => a.groupJid)?.groupJid || '',
-      groupChatEnabled: config.group.chatEnabled,
-    });
-    const raw = await asker.ask('Pilih menu (0-7): ');
+    printMainMenu({ active: isActiveNow(), accounts: manager.snapshot() });
+    const raw = await asker.ask('Pilih menu (1-5): ');
     if (raw === null) {
-      // stdin tertutup (mis. jalan sebagai service) — menu selesai,
-      // bot tetap hidup; log kembali tampil langsung ke stdout.
-      setMenuActive(false);
       asker.close();
       return;
     }
     const choice = raw.trim().toLowerCase();
-    if (choice === '') continue; // Enter kosong = refresh dashboard
-    if (choice === '.list') {
-      writeDirect(manager.snapshot().map((a) => `• ${a.id}: ${a.status}${a.phoneNumber ? ` | +${a.phoneNumber}` : ''}`).join('\n'));
-      await asker.ask('\nEnter untuk kembali ke menu…');
-      continue;
-    }
+    if (choice === '') continue; // Enter kosong = tampilkan menu lagi
     switch (choice) {
-      case '0':
-        writeDirect('Mematikan semua bot…');
-        asker.close();
-        onExit();
-        return;
       case '1':
-      case '.add':
         await menuAddAccount(manager, asker);
         break;
       case '2':
@@ -454,51 +466,32 @@ async function runMenu(manager: AccountManager, onExit: () => void): Promise<voi
       case '3': {
         const bots = manager.accountList();
         writeDirect('\n── Daftar akun ──');
+        if (bots.length === 0) writeDirect('(belum ada akun)');
         for (const bot of bots) {
-          writeDirect(`• ${bot.id}: ${bot.status}${bot.displayPhone ? ` | +${bot.displayPhone}` : ''}${bot.groupJid ? ` | grup: ${bot.groupJid}` : ''}`);
+          writeDirect(
+            `• ${bot.id}: ${accountStatusLabel(bot.status)}${bot.displayPhone ? ` | +${bot.displayPhone}` : ''}${bot.groupJid ? ' | sudah di grup target' : ''}`,
+          );
         }
         await asker.ask('\nEnter untuk kembali ke menu…');
         break;
       }
-      case '4': {
-        writeDirect('\n── Log chat (30 terakhir) ──');
-        const chats = recentChatLogs(30);
-        writeDirect(chats.length > 0 ? chats.join('\n') : '(belum ada aktivitas chat)');
-        await asker.ask('\nEnter untuk kembali ke menu…');
+      case '4':
+        await menuManageAccount(manager, asker);
         break;
-      }
-      case '5': {
-        writeDirect('\n── Log sistem (30 terakhir) ──');
-        const logs = recentLogs(30);
-        writeDirect(logs.length > 0 ? logs.join('\n') : '(kosong)');
-        await asker.ask('\nEnter untuk kembali ke menu…');
-        break;
-      }
-      case '6': {
-        const bot = await pickAccount(manager, asker, 'Akun yang mau di-logout (sesi dihapus, pairing ulang lewat menu 2):');
-        if (bot) {
-          await manager.logoutAccount(bot.id, false);
-          writeDirect(`✅ Akun "${bot.id}" sudah di-logout & sesinya dihapus.`);
-        }
-        break;
-      }
-      case '7': {
-        const bot = await pickAccount(manager, asker, 'Akun yang mau DIHAPUS dari registry (logout + sesi dihapus):');
-        if (bot) {
-          await manager.logoutAccount(bot.id, true);
-          writeDirect(`✅ Akun "${bot.id}" sudah dihapus.`);
-        }
-        break;
-      }
+      case '5':
+      case '0':
+        writeDirect('Mematikan semua bot…');
+        asker.close();
+        onExit();
+        return;
       default:
-        writeDirect('Pilihan tidak dikenal — masukkan angka 0–7.');
+        writeDirect('Pilihan tidak dikenal — masukkan angka 1–5.');
         await sleep(800);
     }
   }
 }
 
 async function main(): Promise<void> {
-  installConsoleCapture();
   const active = startScheduler();
   console.log(`[jadwal] Jendela aktif: ${describeWindows()} (${config.timezone}) — status sekarang: ${active ? 'ON ☀️' : 'TIDUR 🌙'}`);
   console.log(

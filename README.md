@@ -10,10 +10,10 @@ Semua akun bot **bercakap-cakap di dalam satu grup WhatsApp target**: akun yang 
 
 ## Cara Kerja
 
-1. **Login pairing code saja** — tidak ada QR. Nomor HP tiap akun dimasukkan lewat menu console dan tersimpan di registry; akun yang belum punya sesi menerima **kode pairing berlabel id akun** yang tampil langsung di dashboard untuk dimasukkan di HP akun tersebut (WhatsApp → Perangkat tertaut → Tautkan perangkat → "Tautkan dengan nomor telepon").
+1. **Login pairing code saja** — tidak ada QR. Nomor HP tiap akun dimasukkan lewat menu console dan tersimpan di registry; akun yang belum punya sesi menerima **kode pairing berlabel id akun** yang tampil langsung di console untuk dimasukkan di HP akun tersebut (WhatsApp → Perangkat tertaut → Tautkan perangkat → "Tautkan dengan nomor telepon").
 2. **Multi-akun dalam satu proses** — tiap akun punya folder sesi sendiri (`auth_info/<id>/`), socket sendiri, dan reconnect sendiri. Satu akun putus tidak mengganggu akun lain.
 3. **Antrean pairing** — akun yang sudah terdaftar langsung jalan bersamaan, tetapi kode pairing hanya diminta untuk **satu akun pada satu waktu** (antrean) supaya kode tidak tertukar antar akun. Setelah satu akun selesai pairing, giliran akun antrean berikutnya otomatis.
-4. **UI menu console** — saat proses hidup, console menampilkan satu **dashboard**: status bot (aktif/tidur), jadwal, AI, grup, daftar akun + statusnya, log chat terakhir, dan log sistem terakhir, plus menu bernomor. Semua log modul ditangkap ke dashboard (tidak mengotori layar); hanya kode pairing yang tampil seketika. Tambah akun dari menu **1**, pairing akun yang belum terhubung dari menu **2**. Akun tercatat di `data/accounts.json` (beserta nomornya) dan tetap ada setelah restart.
+4. **Menu console biasa** — console menampilkan log apa adanya plus satu menu bernomor 1–5 dengan kepala ringkas (status aktif/tidur, jadwal, AI, jumlah akun online). Tambah akun dari menu **1** (nama → nomor → langsung pairing), pairing akun yang belum terhubung dari menu **2**. Kode pairing tampil seketika berbingkai jelas. Akun tercatat di `data/accounts.json` (beserta nomornya) dan tetap ada setelah restart.
 5. **Auto-join grup** — setelah terhubung, akun langsung berusaha masuk grup target dari `.env`:
    - bila `GROUP_INVITE_CODE` / `GROUP_INVITE_LINK` diisi → gabung sendiri lewat undangan;
    - bila hanya `GROUP_JID` → akun lain yang sudah di dalam grup mencoba menambahkannya (perlu admin bila grup membatasi penambahan);
@@ -24,18 +24,15 @@ Semua akun bot **bercakap-cakap di dalam satu grup WhatsApp target**: akun yang 
 
 ## Menu Console
 
-Saat bot hidup, dashboard menampilkan menu ini (ketik angkanya, lalu Enter; Enter kosong = refresh dashboard):
+Console-nya menu biasa: semua log tercetak langsung apa adanya, dan ada satu menu bernomor (ketik angkanya, lalu Enter; Enter kosong = tampilkan menu lagi):
 
 | Menu | Fungsi |
 |---|---|
-| `1` Tambah akun baru | Nama (opsional) + nomor HP → akun dibuat, antre pairing, kode tampil di dashboard |
+| `1` Tambah akun | Minta **nama** → minta **nomor HP** → akun dibuat dan langsung pairing (kode tampil berbingkai di console) |
 | `2` Pairing / sambungkan akun | Pilih akun belum terhubung → konfirmasi/isi nomor → kode pairing diminta |
 | `3` Daftar akun & status | Semua akun + status + nomor + grup |
-| `4` Log chat | 30 aktivitas chat terakhir (DM + grup) |
-| `5` Log sistem | 30 log terakhir |
-| `6` Logout akun | Pilih akun → logout & hapus sesi (pairing ulang lewat menu 2, nomor tetap tersimpan) |
-| `7` Hapus akun | Pilih akun → logout + hapus sesi + keluarkan dari registry |
-| `0` Keluar | Matikan semua bot dengan bersih |
+| `4` Logout / hapus akun | Pilih akun → pilih logout saja (sesi dihapus, pairing ulang lewat menu 2) atau hapus akun dari registry |
+| `5` Keluar | Matikan semua bot dengan bersih |
 
 ## Struktur Project
 
@@ -55,7 +52,7 @@ bot-trainer/
 └── src/
     ├── index.ts          # AccountManager + loop menu console
     ├── bot-account.ts    # satu akun = satu socket: pairing code, reconnect, DM, auto-join grup
-    ├── ui.ts             # dashboard console: status, akun, log chat/sistem, menu
+    ├── ui.ts             # menu console biasa (1–5) + tampilan kode pairing
     ├── accounts.ts       # registry akun (muat/simpan JSON, id otomatis)
     ├── group-chat.ts     # orchestrator percakapan antar-bot di grup
     ├── config.ts         # konfigurasi .env (jadwal, grup, AI, jeda)
@@ -88,11 +85,11 @@ cp .env.example .env   # isi GROUP_JID / GROUP_INVITE_LINK & GEMINI_API_KEY
 npm start
 ```
 
-**Di panel hosting yang menjalankan `node index.js`** (bot-hosting.net / Pterodactyl dengan startup file bawaan `index.js`): tidak perlu mengubah apa pun — `index.js` di root meneruskan ke `src/index.ts` lewat tsx dengan stdio penuh (stdin ikut diteruskan), jadi dashboard dan menu console tetap bisa dipakai dari console panel, persis seperti `npm start`. `tsx` sengaja dipasang sebagai dependency biasa (bukan dev) supaya tetap terinstall walau panel memasang dengan mode production.
+**Di panel hosting yang menjalankan `node index.js`** (bot-hosting.net / Pterodactyl dengan startup file bawaan `index.js`): tidak perlu mengubah apa pun — `index.js` di root meneruskan ke `src/index.ts` lewat tsx dengan stdio penuh (stdin ikut diteruskan), jadi menu console tetap bisa dipakai dari console panel, persis seperti `npm start`. `tsx` sengaja dipasang sebagai dependency biasa (bukan dev) supaya tetap terinstall walau panel memasang dengan mode production.
 
 Alur pertama kali:
 
-1. Bot membuat akun bawaan `bot-1`. Di dashboard, pilih menu **2** → pilih `bot-1` → masukkan nomor HP-nya → kode pairing tampil; masukkan kode itu di HP akun pertama.
+1. Bot membuat akun bawaan `bot-1`. Di menu console, pilih menu **2** → pilih `bot-1` → masukkan nomor HP-nya → kode pairing tampil; masukkan kode itu di HP akun pertama. (Akun berikutnya: menu **1** — isi nama, isi nomor, langsung pairing.)
 2. Setelah terhubung, `bot-1` otomatis gabung grup target (via invite link bila diisi).
 3. Di console yang sama, pilih menu **1** → isi nama (opsional) + nomor HP akun kedua → kode pairing `bot-2` tampil (atau antre di belakang pairing yang sedang berjalan). Ulangi untuk akun berikutnya.
 4. Begitu ≥2 akun online di grup dan jam aktif tiba, sesi percakapan antar-bot mulai sendiri.
