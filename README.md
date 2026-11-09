@@ -42,6 +42,9 @@ Saat bot hidup, dashboard menampilkan menu ini (ketik angkanya, lalu Enter; Ente
 ```
 bot-trainer/
 ├── package.json
+├── index.js              # launcher panel hosting yang menjalankan `node index.js`
+├── scripts/
+│   └── postinstall.cjs   # perbaiki izin eksekusi binary esbuild sesudah npm install
 ├── tsconfig.json
 ├── .env.example          # salin jadi .env, lalu isi
 ├── .gitignore
@@ -84,6 +87,8 @@ npm install
 cp .env.example .env   # isi GROUP_JID / GROUP_INVITE_LINK & GEMINI_API_KEY
 npm start
 ```
+
+**Di panel hosting yang menjalankan `node index.js`** (bot-hosting.net / Pterodactyl dengan startup file bawaan `index.js`): tidak perlu mengubah apa pun — `index.js` di root meneruskan ke `src/index.ts` lewat tsx dengan stdio penuh (stdin ikut diteruskan), jadi dashboard dan menu console tetap bisa dipakai dari console panel, persis seperti `npm start`. `tsx` sengaja dipasang sebagai dependency biasa (bukan dev) supaya tetap terinstall walau panel memasang dengan mode production.
 
 Alur pertama kali:
 
