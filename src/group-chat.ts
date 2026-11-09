@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import type { BotAccount } from './bot-account.js';
+import { isChatSessionRunning } from './chat-session.js';
 import { randomIntInclusive, sleep } from './human-delay.js';
 import { isActiveNow } from './scheduler.js';
 
@@ -89,6 +90,17 @@ export class GroupConversation {
     this.timer = undefined;
   }
 
+  /**
+   * Bangunkan orchestrator SEKARANG (dipakai tombol Start sesi chat):
+   * timer sesi berikutnya dimajukan jadi beberapa detik lagi, supaya
+   * menekan Start terasa langsung bekerja, tidak menunggu sisa jeda
+   * antar sesi yang bisa puluhan menit.
+   */
+  kick(): void {
+    if (!this.running) return;
+    this.scheduleNext(5_000);
+  }
+
   private scheduleNext(delayMs: number): void {
     if (!this.running) return;
     if (this.timer) clearTimeout(this.timer);
@@ -116,6 +128,10 @@ export class GroupConversation {
     if (this.sessionInProgress) return false;
     const groupJid = this.deps.groupJid();
     if (!groupJid) return false;
+    if (!isChatSessionRunning()) {
+      console.log('[grup] Sesi dilewati — sesi chat belum di-Start dari menu console (menu 4).');
+      return false;
+    }
     if (!isActiveNow()) {
       console.log('[grup] Sesi dilewati — di luar jam aktif (bot tidur).');
       return false;
@@ -140,8 +156,8 @@ export class GroupConversation {
       let lastLine = '';
 
       for (let turn = 0; turn < turns; turn += 1) {
-        if (!this.running || !isActiveNow()) {
-          console.log('[grup] Sesi dihentikan di tengah — bot masuk jam tidur / berhenti.');
+        if (!this.running || !isActiveNow() || !isChatSessionRunning()) {
+          console.log('[grup] Sesi dihentikan di tengah — jam tidur, atau sesi chat di-Stop dari menu.');
           break;
         }
         const speaker = pickNextSpeaker(participants, lastSpeakerId);

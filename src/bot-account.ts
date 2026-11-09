@@ -10,6 +10,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import pino from 'pino';
 import { authDirFor } from './accounts.js';
 import { getAiReply } from './ai.js';
+import { isChatSessionRunning } from './chat-session.js';
 import { config } from './config.js';
 import { ChatMemory, SerialQueue, extractText } from './handler.js';
 import { replyNaturally, sleep } from './human-delay.js';
@@ -289,12 +290,13 @@ export class BotAccount {
     if (jid.endsWith('@g.us') && !config.respondToGroups) return;
     if (jid.endsWith('@g.us') && config.group.jid && jid !== config.group.jid && !config.respondToGroups) return;
 
-    // Chat personal (atau grup non-target bila diizinkan): balas
-    // hanya saat jam aktif, dengan rangkaian jeda human-like.
-    if (!isActiveNow()) return;
+    // Chat personal (atau grup non-target bila diizinkan): balas hanya
+    // saat sesi chat menyala (Start di menu) DAN jam aktif, dengan
+    // rangkaian jeda human-like.
+    if (!isChatSessionRunning() || !isActiveNow()) return;
     const senderKey = `${this.id}:${jid}`;
     await this.queue.run(senderKey, async () => {
-      if (!isActiveNow()) return;
+      if (!isChatSessionRunning() || !isActiveNow()) return;
       if (config.markAsRead) await sock.readMessages([msg.key]).catch(() => undefined);
       const reply = await getAiReply(this.memory.get(senderKey), text);
       await replyNaturally(sock, jid, reply, msg);

@@ -2,7 +2,7 @@
 
 Bot WhatsApp untuk **warming up / training banyak akun sekaligus dalam satu proses di satu VPS**. Dibangun di atas [@whiskeysockets/baileys](https://github.com/WhiskeySockets/Baileys) (TypeScript, ESM) dengan balasan AI text-only dari **Google Gemini 2.5 Flash** (SDK resmi `@google/genai`) bergaya chat santai anak muda Indonesia.
 
-Semua akun bot **bercakap-cakap di dalam satu grup WhatsApp target**: akun yang baru selesai pairing langsung berusaha masuk grup itu, lalu orchestrator mengatur sesi obrolan antar-bot secara bergiliran — hanya pada jam aktif, dengan jeda human-like penuh.
+Semua akun bot **bercakap-cakap di dalam satu grup WhatsApp target**: akun yang baru selesai pairing langsung berusaha masuk grup itu, lalu orchestrator mengatur sesi obrolan antar-bot secara bergiliran — hanya pada jam aktif dan hanya saat sesi chat di-**Start** dari menu console, dengan jeda human-like penuh.
 
 > ⚠️ **Peringatan ban (jujur, bukan basa-basi):** Baileys adalah klien **tidak resmi**. Pola human-like mengurangi perilaku yang mencolok sebagai bot, tetapi **tidak ada cara yang menjamin 100% bebas ban** — dan menjalankan banyak akun dari satu VPS / satu IP justru menambah permukaan risiko (pola bersama lebih mudah dikenali daripada satu akun rumahan). Gunakan **nomor cadangan** yang sudah berumur & terpakai normal, jaga volume wajar, dan jangan jadikan grup bot ini grup publik.
 
@@ -31,8 +31,11 @@ Console-nya menu biasa: semua log tercetak langsung apa adanya, dan ada satu men
 | `1` Tambah akun | Minta **nama** → minta **nomor HP** → akun dibuat dan langsung pairing (kode tampil berbingkai di console) |
 | `2` Pairing / sambungkan akun | Pilih akun belum terhubung → konfirmasi/isi nomor → kode pairing diminta |
 | `3` Daftar akun & status | Semua akun + status + nomor + grup |
-| `4` Logout / hapus akun | Pilih akun → pilih logout saja (sesi dihapus, pairing ulang lewat menu 2) atau hapus akun dari registry |
-| `5` Keluar | Matikan semua bot dengan bersih |
+| `4` Start / Stop sesi chat | Satu tombol: labelnya `Start sesi chat` saat berhenti dan `Stop sesi chat` saat berjalan |
+| `5` Logout / hapus akun | Pilih akun → pilih logout saja (sesi dihapus, pairing ulang lewat menu 2) atau hapus akun dari registry |
+| `6` Keluar | Matikan semua bot dengan bersih |
+
+**Sesi chat (menu 4):** saat proses baru menyala, sesi chat dalam keadaan **BERHENTI** — akun tetap terhubung dan pairing tetap bisa, tetapi bot tidak mengobrol sama sekali (tidak ada percakapan grup, DM & pesan grup tidak dijawab). Tekan menu **4** untuk **Start**: sesi grup dibangunkan seketika dan bot mulai mengobrol — tetap hanya pada jam aktif. Tekan **4** lagi untuk **Stop**: sesi grup yang sedang berjalan berhenti antar giliran dan semua balasan langsung berhenti.
 
 ## Struktur Project
 
@@ -52,7 +55,8 @@ bot-trainer/
 └── src/
     ├── index.ts          # AccountManager + loop menu console
     ├── bot-account.ts    # satu akun = satu socket: pairing code, reconnect, DM, auto-join grup
-    ├── ui.ts             # menu console biasa (1–5) + tampilan kode pairing
+    ├── ui.ts             # menu console biasa (1–6) + tampilan kode pairing
+    ├── chat-session.ts   # saklar sesi chat manual (Start/Stop dari menu 4)
     ├── accounts.ts       # registry akun (muat/simpan JSON, id otomatis)
     ├── group-chat.ts     # orchestrator percakapan antar-bot di grup
     ├── config.ts         # konfigurasi .env (jadwal, grup, AI, jeda)

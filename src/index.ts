@@ -14,8 +14,9 @@
  *   1 Tambah akun (nama → nomor → langsung pairing)
  *   2 Pairing / sambungkan akun
  *   3 Daftar akun & status
- *   4 Logout / hapus akun
- *   5 Keluar
+ *   4 Start / Stop sesi chat (chat-session.ts)
+ *   5 Logout / hapus akun
+ *   6 Keluar
  * Kode pairing tampil seketika berbingkai jelas (harus segera
  * dimasukkan ke HP akun yang di-pairing).
  */
@@ -29,6 +30,7 @@ import {
   type AccountRecord,
 } from './accounts.js';
 import { BotAccount } from './bot-account.js';
+import { isChatSessionRunning, startChatSession, stopChatSession } from './chat-session.js';
 import { config } from './config.js';
 import { ChatMemory, SerialQueue } from './handler.js';
 import { GroupConversation } from './group-chat.js';
@@ -191,7 +193,7 @@ class AccountManager {
       [...this.bots.values()].map((bot) => bot.ownJid).filter((jid): jid is string => jid !== undefined),
     );
     if (botJids.has(senderJid)) return;
-    if (!isActiveNow()) return;
+    if (!isChatSessionRunning() || !isActiveNow()) return;
 
     const candidates = [...this.bots.values()].filter(
       (bot) => bot.isOpen && bot.groupJid === groupJid && bot.ownJid !== senderJid,
@@ -200,7 +202,7 @@ class AccountManager {
     const responder = candidates[Math.floor(Math.random() * candidates.length)]!;
 
     await this.queue.run(`group:${groupJid}`, async () => {
-      if (!isActiveNow() || !responder.isOpen) return;
+      if (!isChatSessionRunning() || !isActiveNow() || !responder.isOpen) return;
       const historyKey = `group:${groupJid}`;
       const reply = await getAiReply(this.memory.get(historyKey), text);
       const sent = await responder.sendNaturally(groupJid, reply);
@@ -420,7 +422,7 @@ async function menuPairAccount(manager: AccountManager, asker: Asker): Promise<v
   writeDirect(`🔑 Pairing "${bot.id}" (+${phone}) dimulai/di-antrekan — kode pairing akan tampil di layar ini.`);
 }
 
-/** Menu 4: pilih akun, lalu pilih logout saja atau hapus akun. */
+/** Menu 5: pilih akun, lalu pilih logout saja atau hapus akun. */
 async function menuManageAccount(manager: AccountManager, asker: Asker): Promise<void> {
   const bot = await pickAccount(manager, asker, 'Kelola akun — pilih akunnya:');
   if (!bot) return;
@@ -441,15 +443,36 @@ async function menuManageAccount(manager: AccountManager, asker: Asker): Promise
 }
 
 /**
- * Loop menu utama (menu biasa 1–5). Selesai bila user memilih 5
+ * Menu 4 — tombol Start/Stop sesi chat. Start menyalakan sesi
+ * (orchestrator grup dibangunkan seketika lewat kick), Stop
+ * mematikannya (sesi grup yang sedang jalan berhenti antar giliran,
+ * balasan DM/grup langsung berhenti total).
+ */
+function menuToggleChatSession(manager: AccountManager): void {
+  if (isChatSessionRunning()) {
+    stopChatSession();
+    writeDirect('⏸ Sesi chat di-STOP. Bot tetap terhubung, tapi tidak mengobrol apa pun sampai di-Start lagi.');
+  } else {
+    startChatSession();
+    manager.groupChat.kick();
+    writeDirect(
+      isActiveNow()
+        ? '▶ Sesi chat di-START. Percakapan grup akan dimulai sebentar lagi (butuh ≥2 akun online di grup); DM & grup mulai dijawab.'
+        : '▶ Sesi chat di-START, tapi sekarang di luar jam aktif — obrolan baru jalan saat jam aktif berikutnya.',
+    );
+  }
+}
+
+/**
+ * Loop menu utama (menu biasa 1–6). Selesai bila user memilih 6
  * (keluar) atau stdin tertutup — dalam kasus stdin tertutup bot tetap
- * hidup melayani chat, hanya menunya saja yang berhenti.
+ * hidup, hanya menunya saja yang berhenti.
  */
 async function runMenu(manager: AccountManager, onExit: () => void): Promise<void> {
   const asker = createAsker();
   for (;;) {
-    printMainMenu({ active: isActiveNow(), accounts: manager.snapshot() });
-    const raw = await asker.ask('Pilih menu (1-5): ');
+    printMainMenu({ active: isActiveNow(), accounts: manager.snapshot(), sessionRunning: isChatSessionRunning() });
+    const raw = await asker.ask('Pilih menu (1-6): ');
     if (raw === null) {
       asker.close();
       return;
@@ -476,16 +499,19 @@ async function runMenu(manager: AccountManager, onExit: () => void): Promise<voi
         break;
       }
       case '4':
-        await menuManageAccount(manager, asker);
+        menuToggleChatSession(manager);
         break;
       case '5':
+        await menuManageAccount(manager, asker);
+        break;
+      case '6':
       case '0':
         writeDirect('Mematikan semua bot…');
         asker.close();
         onExit();
         return;
       default:
-        writeDirect('Pilihan tidak dikenal — masukkan angka 1–5.');
+        writeDirect('Pilihan tidak dikenal — masukkan angka 1–6.');
         await sleep(800);
     }
   }
@@ -508,6 +534,7 @@ async function main(): Promise<void> {
   const manager = new AccountManager();
   await manager.startAll();
   manager.groupChat.start();
+  console.log('[sesi] Sesi chat BERHENTI — bot terhubung tapi belum mengobrol. Mulai dari menu 4 (Start sesi chat).');
 
   const shutdown = (): void => {
     manager.groupChat.stop();

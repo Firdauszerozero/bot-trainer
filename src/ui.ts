@@ -10,8 +10,9 @@ import { config } from './config.js';
  *   1. Tambah akun            → tanya nama → tanya nomor → pairing
  *   2. Pairing / sambungkan akun
  *   3. Daftar akun & status
- *   4. Logout / hapus akun
- *   5. Keluar
+ *   4. Start / Stop sesi chat (satu tombol, labelnya mengikuti keadaan)
+ *   5. Logout / hapus akun
+ *   6. Keluar
  *
  * Satu-satunya tampilan khusus yang tersisa adalah KODE PAIRING
  * (showPairingCode): memang harus terlihat jelas saat itu juga supaya
@@ -29,6 +30,8 @@ export interface AccountSnapshot {
 export interface MenuInfo {
   active: boolean;
   accounts: AccountSnapshot[];
+  /** Sesi chat menyala (Start) atau berhenti (Stop) — lihat chat-session.ts. */
+  sessionRunning: boolean;
 }
 
 /** Label status akun untuk daftar & menu. */
@@ -52,14 +55,16 @@ export function printMainMenu(info: MenuInfo): void {
     '',
     '========== BOT TRAINER ==========',
     `Status : ${info.active ? 'AKTIF (jam aktif)' : 'TIDUR (di luar jam aktif)'} | jadwal: ${config.activeWindows.map((w) => w.label).join(', ')} (${config.timezone})`,
+    `Sesi   : ${info.sessionRunning ? '▶ BERJALAN (bot mengobrol)' : '⏸ BERHENTI (bot diam, tetap terhubung)'}`,
     `AI     : ${config.ai.apiKey ? `${config.ai.model} @ Google Gemini` : 'mode fallback (tanpa API key)'}`,
     `Akun   : ${connected}/${info.accounts.length} online`,
     '',
     '1. Tambah akun',
     '2. Pairing / sambungkan akun',
     '3. Daftar akun & status',
-    '4. Logout / hapus akun',
-    '5. Keluar',
+    info.sessionRunning ? '4. Stop sesi chat' : '4. Start sesi chat',
+    '5. Logout / hapus akun',
+    '6. Keluar',
     '',
   ];
   process.stdout.write(`${lines.join('\n')}\n`);
